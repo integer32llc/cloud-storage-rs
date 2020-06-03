@@ -73,10 +73,10 @@ struct UpdateMeta {
 
 impl HmacKey {
     /// Creates a new HMAC key for the specified service account.
-    /// 
+    ///
     /// The authenticated user must have `storage.hmacKeys.create` permission for the project in
     /// which the key will be created.
-    /// 
+    ///
     /// For general information about HMAC keys in Cloud Storage, see
     /// [HMAC Keys](https://cloud.google.com/storage/docs/authentication/hmackeys).
     /// ### Example
@@ -118,17 +118,17 @@ impl HmacKey {
     /// Retrieves a list of HMAC keys matching the criteria. Since the HmacKey is secret, this does
     /// not return a `HmacKey`, but a `HmacMeta`. This is a redacted version of a `HmacKey`, but
     /// with the secret data omitted.
-    /// 
+    ///
     /// The authenticated user must have `storage.hmacKeys.list` permission for the project in which
     /// the key exists.
-    /// 
+    ///
     /// For general information about HMAC keys in Cloud Storage, see
     /// [HMAC Keys](https://cloud.google.com/storage/docs/authentication/hmackeys).
     /// ### Example
     /// ```
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::hmac_key::HmacKey;
-    /// 
+    ///
     /// let all_hmac_keys = HmacKey::list()?;
     /// # Ok(())
     /// # }
@@ -154,17 +154,17 @@ impl HmacKey {
     /// Retrieves an HMAC key's metadata. Since the HmacKey is secret, this does not return a
     /// `HmacKey`, but a `HmacMeta`. This is a redacted version of a `HmacKey`, but with the secret
     /// data omitted.
-    /// 
+    ///
     /// The authenticated user must have `storage.hmacKeys.get` permission for the project in which
     /// the key exists.
-    /// 
+    ///
     /// For general information about HMAC keys in Cloud Storage, see
     /// [HMAC Keys](https://cloud.google.com/storage/docs/authentication/hmackeys).
     /// ### Example
     /// ```no_run
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::hmac_key::HmacKey;
-    /// 
+    ///
     /// let key = HmacKey::read("some identifier")?;
     /// # Ok(())
     /// # }
@@ -190,17 +190,17 @@ impl HmacKey {
     /// Updates the state of an HMAC key. See the HMAC Key resource descriptor for valid states.
     /// Since the HmacKey is secret, this does not return a `HmacKey`, but a `HmacMeta`. This is a
     /// redacted version of a `HmacKey`, but with the secret data omitted.
-    /// 
+    ///
     /// The authenticated user must have `storage.hmacKeys.update` permission for the project in
     /// which the key exists.
-    /// 
+    ///
     /// For general information about HMAC keys in Cloud Storage, see
     /// [HMAC Keys](https://cloud.google.com/storage/docs/authentication/hmackeys).
     /// ### Example
     /// ```no_run
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::hmac_key::{HmacKey, HmacState};
-    /// 
+    ///
     /// let key = HmacKey::update("your key", HmacState::Active)?;
     /// # Ok(())
     /// # }
@@ -236,7 +236,7 @@ impl HmacKey {
     /// ```no_run
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::hmac_key::{HmacKey, HmacState};
-    /// 
+    ///
     /// let key = HmacKey::update("your key", HmacState::Inactive)?; // this is required.
     /// HmacKey::delete(&key.access_id)?;
     /// # Ok(())
@@ -302,7 +302,6 @@ mod tests {
         HmacKey::delete(&key.access_id)?;
         Ok(())
     }
-
 
     #[test]
     fn delete() -> Result<(), Box<dyn std::error::Error>> {

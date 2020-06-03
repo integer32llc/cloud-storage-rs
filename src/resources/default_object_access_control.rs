@@ -111,7 +111,7 @@ impl DefaultObjectAccessControl {
             GoogleResponse::Success(mut s) => {
                 s.bucket = bucket.to_string();
                 Ok(s)
-            },
+            }
             GoogleResponse::Error(e) => Err(e.into()),
         }
     }
@@ -139,15 +139,14 @@ impl DefaultObjectAccessControl {
             .send()?
             .json()?;
         match result {
-            GoogleResponse::Success(s) => {
-                Ok(s.items
-                    .into_iter()
-                    .map(|item| DefaultObjectAccessControl {
-                        bucket: bucket.to_string(),
-                        ..item
-                    })
-                    .collect())
-            },
+            GoogleResponse::Success(s) => Ok(s
+                .items
+                .into_iter()
+                .map(|item| DefaultObjectAccessControl {
+                    bucket: bucket.to_string(),
+                    ..item
+                })
+                .collect()),
             GoogleResponse::Error(e) => Err(e.into()),
         }
     }
@@ -187,7 +186,7 @@ impl DefaultObjectAccessControl {
             GoogleResponse::Success(mut s) => {
                 s.bucket = bucket.to_string();
                 Ok(s)
-            },
+            }
             GoogleResponse::Error(e) => Err(e.into()),
         }
     }
@@ -226,7 +225,7 @@ impl DefaultObjectAccessControl {
             GoogleResponse::Success(mut s) => {
                 s.bucket = self.bucket.to_string();
                 Ok(s)
-            },
+            }
             GoogleResponse::Error(e) => Err(e.into()),
         }
     }

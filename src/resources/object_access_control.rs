@@ -295,32 +295,16 @@ mod tests {
     #[test]
     fn update() {
         // use a seperate bucket to prevent synchronization issues
-        let bucket = crate::create_test_bucket(
-            "test-object-access-controls-update"
-        );
+        let bucket = crate::create_test_bucket("test-object-access-controls-update");
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        let object = Object::create(
-            &bucket.name,
-            &[0, 1],
-            "test-update",
-            "text/plain"
-        )
-        .unwrap();
-        ObjectAccessControl::create(
-            &bucket.name,
-            "test-update",
-            &new_bucket_access_control
-        )
-        .unwrap();
-        let mut acl = ObjectAccessControl::read(
-            &bucket.name,
-            "test-update",
-            &Entity::AllUsers
-        )
-        .unwrap();
+        let object = Object::create(&bucket.name, &[0, 1], "test-update", "text/plain").unwrap();
+        ObjectAccessControl::create(&bucket.name, "test-update", &new_bucket_access_control)
+            .unwrap();
+        let mut acl =
+            ObjectAccessControl::read(&bucket.name, "test-update", &Entity::AllUsers).unwrap();
         acl.entity = Entity::AllAuthenticatedUsers;
         acl.update().unwrap();
         object.delete().unwrap();

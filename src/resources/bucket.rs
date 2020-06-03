@@ -12,7 +12,7 @@ pub use crate::resources::location::*;
 /// is a single global namespace shared by all buckets. For more information, see
 /// [Bucket Name Requirements](https://cloud.google.com/storage/docs/naming#requirements).
 ///
-/// Buckets contain objects which can be accessed by their own methods. In addition to the 
+/// Buckets contain objects which can be accessed by their own methods. In addition to the
 /// [ACL property](https://cloud.google.com/storage/docs/access-control/lists), buckets contain
 /// `BucketAccessControls`, for use in fine-grained manipulation of an existing bucket's access
 /// controls.
@@ -914,10 +914,7 @@ mod tests {
             ..Default::default()
         };
         bucket.set_iam_policy(&iam_policy)?;
-        assert_eq!(
-            bucket.get_iam_policy()?.bindings,
-            iam_policy.bindings
-        );
+        assert_eq!(bucket.get_iam_policy()?.bindings, iam_policy.bindings);
         bucket.delete()?;
         Ok(())
     }
