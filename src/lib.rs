@@ -60,7 +60,7 @@
 //! ```rust,no_run
 //! # use cloud_storage::Object;
 //! let object = Object::read("mybucket", "myfile").unwrap();
-//! object.delete();
+//! Object::delete("mybucket", "myfile");
 //! ```
 #![forbid(unsafe_code, missing_docs)]
 
