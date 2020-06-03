@@ -73,7 +73,7 @@ pub struct Object {
     pub acl: Option<Vec<ObjectAccessControl>>,
     /// The owner of the object. This will always be the uploader of the object. If
     /// `iamConfiguration.uniformBucketLevelAccess.enabled` is set to true, this field does not
-    /// apply, and is omitted in responses.   
+    /// apply, and is omitted in responses.
     pub owner: Option<Owner>,
     /// CRC32c checksum, as described in RFC 4960, Appendix B; encoded using base64 in big-endian
     /// byte order. For more information about using the CRC32c checksum, see Hashes and ETags: Best
@@ -254,7 +254,7 @@ impl Object {
     /// Obtain a list of objects within this Bucket.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::Object;
     ///
     /// let all_objects = Object::list("my_bucket")?;
@@ -311,7 +311,7 @@ impl Object {
     /// Obtains a single object with the specified name in the specified bucket.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::Object;
     ///
     /// let object = Object::read("my_bucket", "path/to/my/file.png")?;
@@ -365,7 +365,7 @@ impl Object {
     /// Obtains a single object with the specified name in the specified bucket.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::Object;
     ///
     /// let mut object = Object::read("my_bucket", "path/to/my/file.png")?;
@@ -396,7 +396,7 @@ impl Object {
     /// Obtains a single object with the specified name in the specified bucket.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::Object;
     ///
     /// let mut object = Object::read("my_bucket", "path/to/my/file.png")?;
@@ -422,7 +422,7 @@ impl Object {
     /// Obtains a single object with the specified name in the specified bucket.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::object::{Object, ComposeRequest, SourceObject};
     ///
     /// let obj1 = Object::read("my_bucket", "file1")?;
@@ -475,7 +475,7 @@ impl Object {
     /// Copy this object to the target bucket and path
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::object::{Object, ComposeRequest};
     ///
     /// let obj1 = Object::read("my_bucket", "file1")?;
@@ -515,7 +515,7 @@ impl Object {
     /// These limitations mean that for now, the rewrite and the copy methods do the same thing.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::object::Object;
     ///
     /// let obj1 = Object::read("my_bucket", "file1")?;
@@ -551,7 +551,7 @@ impl Object {
     /// without any authentication.
     /// ### Example
     /// ```no_run
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> { 
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use cloud_storage::object::{Object, ComposeRequest};
     ///
     /// let obj1 = Object::read("my_bucket", "file1")?;
