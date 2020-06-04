@@ -95,18 +95,20 @@ impl DefaultObjectAccessControl {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn create(
+    pub async fn create(
         bucket: &str,
         new_acl: &NewDefaultObjectAccessControl,
     ) -> Result<Self, crate::Error> {
         let url = format!("{}/b/{}/defaultObjectAcl", crate::BASE_URL, bucket);
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .post(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(new_acl)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(mut s) => {
                 s.bucket = bucket.to_string();
@@ -130,14 +132,16 @@ impl DefaultObjectAccessControl {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn list(bucket: &str) -> Result<Vec<Self>, crate::Error> {
+    pub async fn list(bucket: &str) -> Result<Vec<Self>, crate::Error> {
         let url = format!("{}/b/{}/defaultObjectAcl", crate::BASE_URL, bucket);
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<ListResponse<Self>> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s
                 .items
@@ -169,19 +173,21 @@ impl DefaultObjectAccessControl {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn read(bucket: &str, entity: &Entity) -> Result<Self, crate::Error> {
+    pub async fn read(bucket: &str, entity: &Entity) -> Result<Self, crate::Error> {
         let url = dbg!(format!(
             "{}/b/{}/defaultObjectAcl/{}",
             crate::BASE_URL,
             bucket,
             entity
         ));
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(mut s) => {
                 s.bucket = bucket.to_string();
@@ -207,20 +213,22 @@ impl DefaultObjectAccessControl {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn update(&self) -> Result<Self, crate::Error> {
+    pub async fn update(&self) -> Result<Self, crate::Error> {
         let url = format!(
             "{}/b/{}/defaultObjectAcl/{}",
             crate::BASE_URL,
             self.bucket,
             self.entity
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .put(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(self)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(mut s) => {
                 s.bucket = self.bucket.to_string();
@@ -245,19 +253,23 @@ impl DefaultObjectAccessControl {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn delete(self) -> Result<(), crate::Error> {
+    pub async fn delete(self) -> Result<(), crate::Error> {
         let url = format!(
             "{}/b/{}/defaultObjectAcl/{}",
             crate::BASE_URL,
             self.bucket,
             self.entity
         );
-        let client = reqwest::blocking::Client::new();
-        let response = client.delete(&url).headers(crate::get_headers()?).send()?;
+        let client = reqwest::Client::new();
+        let response = client
+            .delete(&url)
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?;
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(crate::Error::Google(response.json()?))
+            Err(crate::Error::Google(response.json().await?))
         }
     }
 }
@@ -266,54 +278,54 @@ impl DefaultObjectAccessControl {
 mod tests {
     use super::*;
 
-    #[test]
-    fn create() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn create() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         let new_acl = NewDefaultObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        DefaultObjectAccessControl::create(&bucket.name, &new_acl)?;
+        DefaultObjectAccessControl::create(&bucket.name, &new_acl).await?;
         Ok(())
     }
 
-    #[test]
-    fn read() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn read() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         NewDefaultObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        DefaultObjectAccessControl::read(&bucket.name, &Entity::AllUsers)?;
+        DefaultObjectAccessControl::read(&bucket.name, &Entity::AllUsers).await?;
         Ok(())
     }
 
-    #[test]
-    fn list() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        DefaultObjectAccessControl::list(&bucket.name)?;
+    #[tokio::test]
+    async fn list() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        DefaultObjectAccessControl::list(&bucket.name).await?;
         Ok(())
     }
 
-    #[test]
-    fn update() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn update() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         let new_acl = NewDefaultObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        let mut default_acl = DefaultObjectAccessControl::create(&bucket.name, &new_acl)?;
+        let mut default_acl = DefaultObjectAccessControl::create(&bucket.name, &new_acl).await?;
         default_acl.entity = Entity::AllAuthenticatedUsers;
-        default_acl.update()?;
+        default_acl.update().await?;
         Ok(())
     }
 
-    #[test]
-    fn delete() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn delete() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         let default_acl =
-            DefaultObjectAccessControl::read(&bucket.name, &Entity::AllAuthenticatedUsers)?;
-        default_acl.delete()?;
+            DefaultObjectAccessControl::read(&bucket.name, &Entity::AllAuthenticatedUsers).await?;
+        default_acl.delete().await?;
         Ok(())
     }
 }

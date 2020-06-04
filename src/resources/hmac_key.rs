@@ -91,7 +91,7 @@ impl HmacKey {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn create() -> Result<Self, crate::Error> {
+    pub async fn create() -> Result<Self, crate::Error> {
         use reqwest::header::CONTENT_LENGTH;
 
         let url = format!(
@@ -100,15 +100,17 @@ impl HmacKey {
             crate::SERVICE_ACCOUNT.project_id
         );
         let query = [("serviceAccountEmail", &crate::SERVICE_ACCOUNT.client_email)];
-        let mut headers = crate::get_headers()?;
+        let mut headers = crate::get_headers().await?;
         headers.insert(CONTENT_LENGTH, 0.into());
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .post(&url)
             .headers(headers)
             .query(&query)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -133,18 +135,20 @@ impl HmacKey {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn list() -> Result<Vec<HmacMeta>, crate::Error> {
+    pub async fn list() -> Result<Vec<HmacMeta>, crate::Error> {
         let url = format!(
             "{}/projects/{}/hmacKeys",
             crate::BASE_URL,
             crate::SERVICE_ACCOUNT.project_id
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<ListResponse> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s.items),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -168,19 +172,21 @@ impl HmacKey {
     /// let key = HmacKey::read("some identifier")?;
     /// # Ok(())
     /// # }
-    pub fn read(access_id: &str) -> Result<HmacMeta, crate::Error> {
+    pub async fn read(access_id: &str) -> Result<HmacMeta, crate::Error> {
         let url = format!(
             "{}/projects/{}/hmacKeys/{}",
             crate::BASE_URL,
             crate::SERVICE_ACCOUNT.project_id,
             access_id
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<HmacMeta> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -204,21 +210,23 @@ impl HmacKey {
     /// let key = HmacKey::update("your key", HmacState::Active)?;
     /// # Ok(())
     /// # }
-    pub fn update(access_id: &str, state: HmacState) -> Result<HmacMeta, crate::Error> {
+    pub async fn update(access_id: &str, state: HmacState) -> Result<HmacMeta, crate::Error> {
         let url = format!(
             "{}/projects/{}/hmacKeys/{}",
             crate::BASE_URL,
             crate::SERVICE_ACCOUNT.project_id,
             access_id
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         serde_json::to_string(&UpdateMeta { state })?;
         let result: GoogleResponse<HmacMeta> = client
             .put(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(&UpdateMeta { state })
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -241,19 +249,23 @@ impl HmacKey {
     /// HmacKey::delete(&key.access_id)?;
     /// # Ok(())
     /// # }
-    pub fn delete(access_id: &str) -> Result<(), crate::Error> {
+    pub async fn delete(access_id: &str) -> Result<(), crate::Error> {
         let url = format!(
             "{}/projects/{}/hmacKeys/{}",
             crate::BASE_URL,
             crate::SERVICE_ACCOUNT.project_id,
             access_id
         );
-        let client = reqwest::blocking::Client::new();
-        let response = client.delete(&url).headers(crate::get_headers()?).send()?;
+        let client = reqwest::Client::new();
+        let response = client
+            .delete(&url)
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?;
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(crate::Error::Google(response.json()?))
+            Err(crate::Error::Google(response.json().await?))
         }
     }
 }
@@ -262,52 +274,54 @@ impl HmacKey {
 mod tests {
     use super::*;
 
-    fn get_test_hmac() -> HmacMeta {
-        match HmacKey::create() {
+    async fn get_test_hmac() -> HmacMeta {
+        match HmacKey::create().await {
             Ok(key) => key.metadata,
-            Err(_) => HmacKey::list().unwrap().pop().unwrap(),
+            Err(_) => HmacKey::list().await.unwrap().pop().unwrap(),
         }
     }
 
-    fn remove_test_hmac(access_id: &str) {
-        HmacKey::update(access_id, HmacState::Inactive).unwrap();
-        HmacKey::delete(access_id).unwrap();
+    async fn remove_test_hmac(access_id: &str) {
+        HmacKey::update(access_id, HmacState::Inactive)
+            .await
+            .unwrap();
+        HmacKey::delete(access_id).await.unwrap();
     }
 
-    #[test]
-    fn create() -> Result<(), Box<dyn std::error::Error>> {
-        let key = HmacKey::create()?;
-        remove_test_hmac(&key.metadata.access_id);
+    #[tokio::test]
+    async fn create() -> Result<(), Box<dyn std::error::Error>> {
+        let key = HmacKey::create().await?;
+        remove_test_hmac(&key.metadata.access_id).await;
         Ok(())
     }
 
-    #[test]
-    fn list() -> Result<(), Box<dyn std::error::Error>> {
-        HmacKey::list()?;
+    #[tokio::test]
+    async fn list() -> Result<(), Box<dyn std::error::Error>> {
+        HmacKey::list().await?;
         Ok(())
     }
 
-    #[test]
-    fn read() -> Result<(), Box<dyn std::error::Error>> {
-        let key = get_test_hmac();
-        HmacKey::read(&key.access_id)?;
+    #[tokio::test]
+    async fn read() -> Result<(), Box<dyn std::error::Error>> {
+        let key = get_test_hmac().await;
+        HmacKey::read(&key.access_id).await?;
         remove_test_hmac(&key.access_id);
         Ok(())
     }
 
-    #[test]
-    fn update() -> Result<(), Box<dyn std::error::Error>> {
-        let key = get_test_hmac();
-        HmacKey::update(&key.access_id, HmacState::Inactive)?;
-        HmacKey::delete(&key.access_id)?;
+    #[tokio::test]
+    async fn update() -> Result<(), Box<dyn std::error::Error>> {
+        let key = get_test_hmac().await;
+        HmacKey::update(&key.access_id, HmacState::Inactive).await?;
+        HmacKey::delete(&key.access_id).await?;
         Ok(())
     }
 
-    #[test]
-    fn delete() -> Result<(), Box<dyn std::error::Error>> {
-        let key = get_test_hmac();
-        HmacKey::update(&key.access_id, HmacState::Inactive)?;
-        HmacKey::delete(&key.access_id)?;
+    #[tokio::test]
+    async fn delete() -> Result<(), Box<dyn std::error::Error>> {
+        let key = get_test_hmac().await;
+        HmacKey::update(&key.access_id, HmacState::Inactive).await?;
+        HmacKey::delete(&key.access_id).await?;
         Ok(())
     }
 }

@@ -171,7 +171,7 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn create(
+    pub async fn create(
         bucket: &str,
         file: &[u8],
         filename: &str,
@@ -181,25 +181,26 @@ impl Object {
 
         // has its own url for some reason
         const BASE_URL: &str = "https://www.googleapis.com/upload/storage/v1/b";
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let url = &format!(
             "{}/{}/o?uploadType=media&name={}",
             BASE_URL,
             percent_encode(&bucket),
             percent_encode(&filename),
         );
-        let mut headers = crate::get_headers()?;
+        let mut headers = crate::get_headers().await?;
         headers.insert(CONTENT_TYPE, mime_type.to_string().parse()?);
         headers.insert(CONTENT_LENGTH, file.len().to_string().parse()?);
         let response = client
             .post(url)
             .headers(headers)
             .body(file.to_owned())
-            .send()?;
+            .send()
+            .await?;
         if response.status() == 200 {
-            Ok(serde_json::from_str(&response.text()?)?)
+            Ok(serde_json::from_str(&response.text().await?)?)
         } else {
-            Err(Error::new(&response.text()?))
+            Err(Error::new(&response.text().await?))
         }
     }
 
@@ -217,9 +218,9 @@ impl Object {
     /// Ok(())
     /// # }
     /// ```
-    pub fn create_streamed<R: std::io::Read + Send + 'static>(
+    pub async fn create_streamed<B: Into<reqwest::Body>>(
         bucket: &str,
-        file: R,
+        body: B,
         length: u64,
         filename: &str,
         mime_type: &str,
@@ -228,22 +229,21 @@ impl Object {
 
         // has its own url for some reason
         const BASE_URL: &str = "https://www.googleapis.com/upload/storage/v1/b";
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let url = &format!(
             "{}/{}/o?uploadType=media&name={}",
             BASE_URL,
             percent_encode(&bucket),
             percent_encode(&filename),
         );
-        let mut headers = crate::get_headers()?;
+        let mut headers = crate::get_headers().await?;
         headers.insert(CONTENT_TYPE, mime_type.to_string().parse()?);
         headers.insert(CONTENT_LENGTH, length.to_string().parse()?);
-        let body = reqwest::blocking::Body::sized(file, length);
-        let response = client.post(url).headers(headers).body(body).send()?;
+        let response = client.post(url).headers(headers).body(body).send().await?;
         if response.status() == 200 {
-            Ok(serde_json::from_str(&response.text()?)?)
+            Ok(serde_json::from_str(&response.text().await?)?)
         } else {
-            Err(Error::new(&response.text()?))
+            Err(Error::new(&response.text().await?))
         }
     }
 
@@ -257,8 +257,8 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn list(bucket: &str) -> Result<Vec<Self>, Error> {
-        Self::list_from(bucket, None, None)
+    pub async fn list(bucket: &str) -> Result<Vec<Self>, Error> {
+        Self::list_from(bucket, None, None).await
     }
 
     /// Obtain a list of objects by prefix within this Bucket .
@@ -271,42 +271,45 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn list_prefix(bucket: &str, prefix: &str) -> Result<Vec<Self>, Error> {
-        Self::list_from(bucket, Some(prefix), None)
+    pub async fn list_prefix(bucket: &str, prefix: &str) -> Result<Vec<Self>, Error> {
+        Self::list_from(bucket, Some(prefix), None).await
     }
 
-    fn list_from(
+    async fn list_from(
         bucket: &str,
         prefix: Option<&str>,
         page_token: Option<&str>,
     ) -> Result<Vec<Self>, Error> {
-        let url = format!("{}/b/{}/o", crate::BASE_URL, percent_encode(bucket));
-        let client = reqwest::blocking::Client::new();
-        let mut query = if let Some(page_token) = page_token {
-            vec![("pageToken", page_token)]
-        } else {
-            vec![]
-        };
-        if let Some(prefix) = prefix {
-            query.push(("prefix", prefix));
-        };
-
-        let result: GoogleResponse<ListResponse<Self>> = client
-            .get(&url)
-            .query(&query)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
-        match result {
-            GoogleResponse::Success(mut s) => {
-                if let Some(page_token) = s.next_page_token {
-                    s.items
-                        .extend(Self::list_from(bucket, prefix, Some(&page_token))?.into_iter());
-                }
-                Ok(s.items)
-            }
-            GoogleResponse::Error(e) => Err(e.into()),
-        }
+        panic!();
+        // let url = format!("{}/b/{}/o", crate::BASE_URL, percent_encode(bucket));
+        // let client = reqwest::Client::new();
+        // let mut query = if let Some(page_token) = page_token {
+        //     vec![("pageToken", page_token)]
+        // } else {
+        //     vec![]
+        // };
+        // if let Some(prefix) = prefix {
+        //     query.push(("prefix", prefix));
+        // };
+        //
+        // let result: GoogleResponse<ListResponse<Self>> = client
+        //     .get(&url)
+        //     .query(&query)
+        //     .headers(crate::get_headers()?)
+        //     .send()
+        //     .await?
+        //     .json()
+        //     .await?;
+        // match result {
+        //     GoogleResponse::Success(mut s) => {
+        //         if let Some(page_token) = s.next_page_token {
+        //             s.items
+        //                 .extend(Self::list_from(bucket, prefix, Some(&page_token)).await?.into_iter());
+        //         }
+        //         Ok(s.items)
+        //     }
+        //     GoogleResponse::Error(e) => Err(e.into()),
+        // }
     }
 
     /// Obtains a single object with the specified name in the specified bucket.
@@ -319,19 +322,21 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn read(bucket: &str, file_name: &str) -> Result<Self, Error> {
+    pub async fn read(bucket: &str, file_name: &str) -> Result<Self, Error> {
         let url = format!(
             "{}/b/{}/o/{}",
             crate::BASE_URL,
             percent_encode(bucket),
             percent_encode(file_name),
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -348,19 +353,21 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn download(bucket: &str, file_name: &str) -> Result<bytes::Bytes, Error> {
+    pub async fn download(bucket: &str, file_name: &str) -> Result<bytes::Bytes, Error> {
         let url = format!(
             "{}/b/{}/o/{}?alt=media",
             crate::BASE_URL,
             percent_encode(bucket),
             percent_encode(file_name),
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         Ok(client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .bytes()?)
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .bytes()
+            .await?)
     }
 
     /// Obtains a single object with the specified name in the specified bucket.
@@ -375,20 +382,22 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn update(&self) -> Result<Self, Error> {
+    pub async fn update(&self) -> Result<Self, Error> {
         let url = format!(
             "{}/b/{}/o/{}",
             crate::BASE_URL,
             percent_encode(&self.bucket),
             percent_encode(&self.name),
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .put(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(&self)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -405,19 +414,23 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn delete(bucket: &str, file_name: &str) -> Result<(), Error> {
+    pub async fn delete(bucket: &str, file_name: &str) -> Result<(), Error> {
         let url = format!(
             "{}/b/{}/o/{}",
             crate::BASE_URL,
             percent_encode(bucket),
             percent_encode(file_name),
         );
-        let client = reqwest::blocking::Client::new();
-        let response = client.delete(&url).headers(crate::get_headers()?).send()?;
+        let client = reqwest::Client::new();
+        let response = client
+            .delete(&url)
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?;
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(Error::Google(response.json()?))
+            Err(Error::Google(response.json().await?))
         }
     }
 
@@ -450,7 +463,7 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn compose(
+    pub async fn compose(
         bucket: &str,
         req: &ComposeRequest,
         destination_object: &str,
@@ -461,13 +474,15 @@ impl Object {
             percent_encode(&bucket),
             percent_encode(&destination_object)
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .post(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(req)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -486,7 +501,7 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn copy(&self, destination_bucket: &str, path: &str) -> Result<Self, Error> {
+    pub async fn copy(&self, destination_bucket: &str, path: &str) -> Result<Self, Error> {
         use reqwest::header::CONTENT_LENGTH;
 
         let url = format!(
@@ -497,10 +512,16 @@ impl Object {
             dBucket = percent_encode(&destination_bucket),
             dObject = percent_encode(&path),
         );
-        let client = reqwest::blocking::Client::new();
-        let mut headers = crate::get_headers()?;
+        let client = reqwest::Client::new();
+        let mut headers = crate::get_headers().await?;
         headers.insert(CONTENT_LENGTH, "0".parse()?);
-        let result: GoogleResponse<Self> = client.post(&url).headers(headers).send()?.json()?;
+        let result: GoogleResponse<Self> = client
+            .post(&url)
+            .headers(headers)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -526,7 +547,7 @@ impl Object {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn rewrite(&self, destination_bucket: &str, path: &str) -> Result<Self, Error> {
+    pub async fn rewrite(&self, destination_bucket: &str, path: &str) -> Result<Self, Error> {
         use reqwest::header::CONTENT_LENGTH;
 
         let url = format!(
@@ -537,11 +558,16 @@ impl Object {
             dBucket = percent_encode(destination_bucket),
             dObject = percent_encode(path),
         );
-        let client = reqwest::blocking::Client::new();
-        let mut headers = crate::get_headers()?;
+        let client = reqwest::Client::new();
+        let mut headers = crate::get_headers().await?;
         headers.insert(CONTENT_LENGTH, "0".parse()?);
-        let result: GoogleResponse<RewriteResponse> =
-            client.post(&url).headers(headers).send()?.json()?;
+        let result: GoogleResponse<RewriteResponse> = client
+            .post(&url)
+            .headers(headers)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s.resource),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -710,37 +736,37 @@ fn percent_encode(input: &str) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn create() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        Object::create(&bucket.name, &[0, 1], "test-create", "text/plain")?;
+    #[tokio::test]
+    async fn create() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        Object::create(&bucket.name, &[0, 1], "test-create", "text/plain").await?;
         Ok(())
     }
 
-    #[test]
-    fn create_streamed() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        let cursor = std::io::Cursor::new([0, 1]);
-        Object::create_streamed(
-            &bucket.name,
-            cursor,
-            2,
-            "test-create-streamed",
-            "text/plain",
-        )?;
+    // #[tokio::test]
+    // async fn create_streamed() -> Result<(), Box<dyn std::error::Error>> {
+    //     let bucket = crate::read_test_bucket().await;
+    //     let cursor = std::io::Cursor::new([0, 1]);
+    //     Object::create_streamed(
+    //         &bucket.name,
+    //         cursor,
+    //         2,
+    //         "test-create-streamed",
+    //         "text/plain",
+    //     ).await?;
+    //     Ok(())
+    // }
+
+    #[tokio::test]
+    async fn list() -> Result<(), Box<dyn std::error::Error>> {
+        let test_bucket = crate::read_test_bucket().await;
+        Object::list(&test_bucket.name).await?;
         Ok(())
     }
 
-    #[test]
-    fn list() -> Result<(), Box<dyn std::error::Error>> {
-        let test_bucket = crate::read_test_bucket();
-        Object::list(&test_bucket.name)?;
-        Ok(())
-    }
-
-    #[test]
-    fn list_prefix() -> Result<(), Box<dyn std::error::Error>> {
-        let test_bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn list_prefix() -> Result<(), Box<dyn std::error::Error>> {
+        let test_bucket = crate::read_test_bucket().await;
 
         let prefix_names = [
             "test-list-prefix/1",
@@ -750,68 +776,68 @@ mod tests {
         ];
 
         for name in &prefix_names {
-            Object::create(&test_bucket.name, &[0, 1], name, "text/plain")?;
+            Object::create(&test_bucket.name, &[0, 1], name, "text/plain").await?;
         }
 
-        let list = Object::list_prefix(&test_bucket.name, "test-list-prefix/")?;
+        let list = Object::list_prefix(&test_bucket.name, "test-list-prefix/").await?;
         assert_eq!(list.len(), 4);
-        let list = Object::list_prefix(&test_bucket.name, "test-list-prefix/sub")?;
+        let list = Object::list_prefix(&test_bucket.name, "test-list-prefix/sub").await?;
         assert_eq!(list.len(), 2);
         Ok(())
     }
 
-    #[test]
-    fn read() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        Object::create(&bucket.name, &[0, 1], "test-read", "text/plain")?;
-        Object::read(&bucket.name, "test-read")?;
+    #[tokio::test]
+    async fn read() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        Object::create(&bucket.name, &[0, 1], "test-read", "text/plain").await?;
+        Object::read(&bucket.name, "test-read").await?;
         Ok(())
     }
 
-    #[test]
-    fn download() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn download() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         let content = b"hello world";
         Object::create(
             &bucket.name,
             content,
             "test-download",
             "application/octet-stream",
-        )?;
+        ).await?;
 
-        let data = Object::download(&bucket.name, "test-download")?;
+        let data = Object::download(&bucket.name, "test-download").await?;
         assert_eq!(data.as_ref(), content);
 
         Ok(())
     }
 
-    #[test]
-    fn update() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        let mut obj = Object::create(&bucket.name, &[0, 1], "test-update", "text/plain")?;
+    #[tokio::test]
+    async fn update() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        let mut obj = Object::create(&bucket.name, &[0, 1], "test-update", "text/plain").await?;
         obj.content_type = Some("application/xml".to_string());
-        obj.update()?;
+        obj.update().await?;
         Ok(())
     }
 
-    #[test]
-    fn delete() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        Object::create(&bucket.name, &[0, 1], "test-delete", "text/plain")?;
+    #[tokio::test]
+    async fn delete() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        Object::create(&bucket.name, &[0, 1], "test-delete", "text/plain").await?;
 
-        Object::delete(&bucket.name, "test-delete")?;
+        Object::delete(&bucket.name, "test-delete").await?;
 
-        let list = Object::list_prefix(&bucket.name, "test-delete")?;
+        let list = Object::list_prefix(&bucket.name, "test-delete").await?;
         assert!(list.is_empty());
 
         Ok(())
     }
 
-    #[test]
-    fn compose() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        let obj1 = Object::create(&bucket.name, &[0, 1], "test-compose-1", "text/plain")?;
-        let obj2 = Object::create(&bucket.name, &[2, 3], "test-compose-2", "text/plain")?;
+    #[tokio::test]
+    async fn compose() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        let obj1 = Object::create(&bucket.name, &[0, 1], "test-compose-1", "text/plain").await?;
+        let obj2 = Object::create(&bucket.name, &[2, 3], "test-compose-2", "text/plain").await?;
         let compose_request = ComposeRequest {
             kind: "storage#composeRequest".to_string(),
             source_objects: vec![
@@ -828,36 +854,36 @@ mod tests {
             ],
             destination: None,
         };
-        let obj3 = Object::compose(&bucket.name, &compose_request, "test-concatted-file")?;
+        let obj3 = Object::compose(&bucket.name, &compose_request, "test-concatted-file").await?;
         let url = obj3.download_url(100)?;
-        let content = reqwest::blocking::get(&url)?.text()?;
+        let content = reqwest::get(&url).await?.text().await?;
         assert_eq!(content.as_bytes(), &[0, 1, 2, 3]);
         Ok(())
     }
 
-    #[test]
-    fn copy() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        let original = Object::create(&bucket.name, &[2, 3], "test-copy", "text/plain")?;
-        original.copy(&bucket.name, "test-copy - copy")?;
+    #[tokio::test]
+    async fn copy() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        let original = Object::create(&bucket.name, &[2, 3], "test-copy", "text/plain").await?;
+        original.copy(&bucket.name, "test-copy - copy").await?;
         Ok(())
     }
 
-    #[test]
-    fn rewrite() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
-        let obj = Object::create(&bucket.name, &[0, 1], "test-rewrite", "text/plain")?;
-        let obj = obj.rewrite(&bucket.name, "test-rewritten")?;
+    #[tokio::test]
+    async fn rewrite() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
+        let obj = Object::create(&bucket.name, &[0, 1], "test-rewrite", "text/plain").await?;
+        let obj = obj.rewrite(&bucket.name, "test-rewritten").await?;
         let url = obj.download_url(100)?;
-        let client = reqwest::blocking::Client::new();
-        let download = client.head(&url).send()?;
+        let client = reqwest::Client::new();
+        let download = client.head(&url).send().await?;
         assert_eq!(download.status().as_u16(), 200);
         Ok(())
     }
 
-    #[test]
-    fn test_url_encoding() -> Result<(), Box<dyn std::error::Error>> {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn test_url_encoding() -> Result<(), Box<dyn std::error::Error>> {
+        let bucket = crate::read_test_bucket().await;
         let complicated_names = [
             "asdf",
             "asdf+1",
@@ -867,11 +893,11 @@ mod tests {
             "测试很重要",
         ];
         for name in &complicated_names {
-            let _obj = Object::create(&bucket.name, &[0, 1], name, "text/plain")?;
-            let obj = Object::read(&bucket.name, &name).unwrap();
+            let _obj = Object::create(&bucket.name, &[0, 1], name, "text/plain").await?;
+            let obj = Object::read(&bucket.name, &name).await.unwrap();
             let url = obj.download_url(100)?;
-            let client = reqwest::blocking::Client::new();
-            let download = client.head(&url).send()?;
+            let client = reqwest::Client::new();
+            let download = client.head(&url).send().await?;
             assert_eq!(download.status().as_u16(), 200);
         }
         Ok(())

@@ -108,19 +108,21 @@ impl ObjectAccessControl {
     /// Important: This method fails with a 400 Bad Request response for buckets with uniform
     /// bucket-level access enabled. Use `Bucket::get_iam_policy` and `Bucket::set_iam_policy` to
     /// control access instead.
-    pub fn create(
+    pub async fn create(
         bucket: &str,
         object: &str,
         new_object_access_control: &NewObjectAccessControl,
     ) -> Result<Self, crate::Error> {
         let url = format!("{}/b/{}/o/{}/acl", crate::BASE_URL, bucket, object);
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .post(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(new_object_access_control)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -133,14 +135,16 @@ impl ObjectAccessControl {
     /// Important: This method fails with a 400 Bad Request response for buckets with uniform
     /// bucket-level access enabled. Use `Bucket::get_iam_policy` and `Bucket::set_iam_policy` to
     /// control access instead.
-    pub fn list(bucket: &str, object: &str) -> Result<Vec<Self>, crate::Error> {
+    pub async fn list(bucket: &str, object: &str) -> Result<Vec<Self>, crate::Error> {
         let url = format!("{}/b/{}/o/{}/acl", crate::BASE_URL, bucket, object);
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<ListResponse<Self>> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s.items),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -153,7 +157,7 @@ impl ObjectAccessControl {
     /// Important: This method fails with a 400 Bad Request response for buckets with uniform
     /// bucket-level access enabled. Use `Bucket::get_iam_policy` and `Bucket::set_iam_policy` to
     /// control access instead.
-    pub fn read(bucket: &str, object: &str, entity: &Entity) -> Result<Self, crate::Error> {
+    pub async fn read(bucket: &str, object: &str, entity: &Entity) -> Result<Self, crate::Error> {
         let url = format!(
             "{}/b/{}/o/{}/acl/{}",
             crate::BASE_URL,
@@ -161,12 +165,14 @@ impl ObjectAccessControl {
             object,
             entity
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .get(&url)
-            .headers(crate::get_headers()?)
-            .send()?
-            .json()?;
+            .headers(crate::get_headers().await?)
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -179,7 +185,7 @@ impl ObjectAccessControl {
     /// Important: This method fails with a 400 Bad Request response for buckets with uniform
     /// bucket-level access enabled. Use `Bucket::get_iam_policy` and `Bucket::set_iam_policy` to
     /// control access instead.
-    pub fn update(&self) -> Result<Self, crate::Error> {
+    pub async fn update(&self) -> Result<Self, crate::Error> {
         let url = format!(
             "{}/b/{}/o/{}/acl/{}",
             crate::BASE_URL,
@@ -187,13 +193,15 @@ impl ObjectAccessControl {
             self.object,
             self.entity,
         );
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let result: GoogleResponse<Self> = client
             .put(&url)
-            .headers(crate::get_headers()?)
+            .headers(crate::get_headers().await?)
             .json(self)
-            .send()?
-            .json()?;
+            .send()
+            .await?
+            .json()
+            .await?;
         match result {
             GoogleResponse::Success(s) => Ok(s),
             GoogleResponse::Error(e) => Err(e.into()),
@@ -206,7 +214,7 @@ impl ObjectAccessControl {
     /// Important: This method fails with a 400 Bad Request response for buckets with uniform
     /// bucket-level access enabled. Use `Bucket::get_iam_policy` and `Bucket::set_iam_policy` to
     /// control access instead.
-    pub fn delete(self) -> Result<(), crate::Error> {
+    pub async fn delete(self) -> Result<(), crate::Error> {
         let url = format!(
             "{}/b/{}/o/{}/acl/{}",
             crate::BASE_URL,
@@ -214,12 +222,12 @@ impl ObjectAccessControl {
             self.object,
             self.entity,
         );
-        let client = reqwest::blocking::Client::new();
-        let response = client.delete(&url).headers(crate::get_headers()?).send()?;
+        let client = reqwest::Client::new();
+        let response = client.delete(&url).headers(crate::get_headers().await?).send().await?;
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(crate::Error::Google(response.json()?))
+            Err(crate::Error::Google(response.json().await?))
         }
     }
 }
@@ -229,15 +237,15 @@ mod tests {
     use super::*;
     use crate::Object;
 
-    #[test]
-    fn create() {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn create() {
+        let bucket = crate::read_test_bucket().await;
         Object::create(
             &bucket.name,
             &[0, 1],
             "test-object-access-controls-create",
             "text/plain",
-        )
+        ).await
         .unwrap();
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
@@ -247,32 +255,32 @@ mod tests {
             &bucket.name,
             "test-object-access-controls-create",
             &new_bucket_access_control,
-        )
+        ).await
         .unwrap();
     }
 
-    #[test]
-    fn list() {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn list() {
+        let bucket = crate::read_test_bucket().await;
         Object::create(
             &bucket.name,
             &[0, 1],
             "test-object-access-controls-list",
             "text/plain",
-        )
+        ).await
         .unwrap();
-        ObjectAccessControl::list(&bucket.name, "test-object-access-controls-list").unwrap();
+        ObjectAccessControl::list(&bucket.name, "test-object-access-controls-list").await.unwrap();
     }
 
-    #[test]
-    fn read() {
-        let bucket = crate::read_test_bucket();
+    #[tokio::test]
+    async fn read() {
+        let bucket = crate::read_test_bucket().await;
         Object::create(
             &bucket.name,
             &[0, 1],
             "test-object-access-controls-read",
             "text/plain",
-        )
+        ).await
         .unwrap();
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
@@ -282,50 +290,52 @@ mod tests {
             &bucket.name,
             "test-object-access-controls-read",
             &new_bucket_access_control,
-        )
+        ).await
         .unwrap();
         ObjectAccessControl::read(
             &bucket.name,
             "test-object-access-controls-read",
             &Entity::AllUsers,
-        )
+        ).await
         .unwrap();
     }
 
-    #[test]
-    fn update() {
+    #[tokio::test]
+    async fn update() {
         // use a seperate bucket to prevent synchronization issues
-        let bucket = crate::create_test_bucket("test-object-access-controls-update");
+        let bucket = crate::create_test_bucket("test-object-access-controls-update").await;
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        Object::create(&bucket.name, &[0, 1], "test-update", "text/plain").unwrap();
+        Object::create(&bucket.name, &[0, 1], "test-update", "text/plain").await.unwrap();
         ObjectAccessControl::create(&bucket.name, "test-update", &new_bucket_access_control)
+        .await
             .unwrap();
         let mut acl =
-            ObjectAccessControl::read(&bucket.name, "test-update", &Entity::AllUsers).unwrap();
+            ObjectAccessControl::read(&bucket.name, "test-update", &Entity::AllUsers).await.unwrap();
         acl.entity = Entity::AllAuthenticatedUsers;
-        acl.update().unwrap();
-        Object::delete(&bucket.name, "test-update").unwrap();
-        bucket.delete().unwrap();
+        acl.update().await.unwrap();
+        Object::delete(&bucket.name, "test-update").await.unwrap();
+        bucket.delete().await.unwrap();
     }
 
-    #[test]
-    fn delete() {
+    #[tokio::test]
+    async fn delete() {
         // use a seperate bucket to prevent synchronization issues
-        let bucket = crate::create_test_bucket("test-object-access-controls-delete");
+        let bucket = crate::create_test_bucket("test-object-access-controls-delete").await;
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
-        Object::create(&bucket.name, &[0, 1], "test-delete", "text/plain").unwrap();
+        Object::create(&bucket.name, &[0, 1], "test-delete", "text/plain").await.unwrap();
         ObjectAccessControl::create(&bucket.name, "test-delete", &new_bucket_access_control)
+        .await
             .unwrap();
         let acl =
-            ObjectAccessControl::read(&bucket.name, "test-delete", &Entity::AllUsers).unwrap();
-        acl.delete().unwrap();
-        Object::delete(&bucket.name, "test-delete").unwrap();
-        bucket.delete().unwrap();
+            ObjectAccessControl::read(&bucket.name, "test-delete", &Entity::AllUsers).await.unwrap();
+        acl.delete().await.unwrap();
+        Object::delete(&bucket.name, "test-delete").await.unwrap();
+        bucket.delete().await.unwrap();
     }
 }

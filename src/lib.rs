@@ -97,10 +97,10 @@ lazy_static::lazy_static! {
 
 const BASE_URL: &'static str = "https://www.googleapis.com/storage/v1";
 
-fn get_headers() -> Result<reqwest::header::HeaderMap, Error> {
+async fn get_headers() -> Result<reqwest::header::HeaderMap, Error> {
     let mut result = reqwest::header::HeaderMap::new();
     let mut guard = TOKEN_CACHE.lock().unwrap();
-    let token = guard.get()?;
+    let token = guard.get().await?;
     result.insert(
         reqwest::header::AUTHORIZATION,
         format!("Bearer {}", token).parse().unwrap(),
@@ -140,15 +140,16 @@ where
 }
 
 #[cfg(test)]
-fn read_test_bucket() -> Bucket {
+async fn read_test_bucket() -> Bucket {
     dotenv::dotenv().ok();
     let name = std::env::var("TEST_BUCKET").unwrap();
-    match Bucket::read(&name) {
+    match Bucket::read(&name).await {
         Ok(bucket) => bucket,
         Err(_not_found) => Bucket::create(&NewBucket {
             name,
             ..Default::default()
         })
+        .await
         .unwrap(),
     }
 }
@@ -156,7 +157,7 @@ fn read_test_bucket() -> Bucket {
 // since all tests run in parallel, we need to make sure we do not create multiple buckets with
 // the same name in each test.
 #[cfg(test)]
-fn create_test_bucket(name: &str) -> Bucket {
+async fn create_test_bucket(name: &str) -> Bucket {
     dotenv::dotenv().ok();
     let base_name = std::env::var("TEST_BUCKET").unwrap();
     let name = format!("{}-{}", base_name, name);
@@ -164,8 +165,8 @@ fn create_test_bucket(name: &str) -> Bucket {
         name,
         ..Default::default()
     };
-    match Bucket::create(&new_bucket) {
+    match Bucket::create(&new_bucket).await {
         Ok(bucket) => bucket,
-        Err(_alread_exists) => Bucket::read(&new_bucket.name).unwrap(),
+        Err(_alread_exists) => Bucket::read(&new_bucket.name).await.unwrap(),
     }
 }
