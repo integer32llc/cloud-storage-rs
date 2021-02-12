@@ -426,6 +426,42 @@ impl Object {
         }))
     }
 
+    async fn list_from_one_page(
+        bucket: &str,
+        prefix: Option<&str>,
+        next_token: Option<&str>,
+    ) -> Result<ListResponse<Self>, Error> {
+        let url = format!("{}/b/{}/o", crate::BASE_URL, percent_encode(bucket));
+        let headers = crate::get_headers().await?;
+
+        let mut query = match next_token {
+            Some(page_token) => vec![("pageToken", page_token.to_string())],
+            None => vec![],
+        };
+
+        if let Some(prefix) = prefix {
+            query.push(("prefix", prefix.to_string()));
+        };
+
+        let response = crate::CLIENT
+            .get(&url)
+            .query(&query)
+            .headers(headers)
+            .send()
+            .await?;
+
+        let json = response.json().await?;
+
+        let result: GoogleResponse<ListResponse<Self>> = json;
+
+        let response_body = match result {
+            GoogleResponse::Success(success) => success,
+            GoogleResponse::Error(e) => return Err(e.into()),
+        };
+
+        Ok(response_body)
+    }
+
     /// Obtains a single object with the specified name in the specified bucket.
     /// ### Example
     /// ```no_run
