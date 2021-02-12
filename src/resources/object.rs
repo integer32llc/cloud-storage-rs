@@ -375,48 +375,23 @@ impl Object {
         use ListState::*;
 
         Ok(stream::unfold(ListState::Start, move |state| async move {
-            let url = format!("{}/b/{}/o", crate::BASE_URL, percent_encode(bucket));
-            let headers = match crate::get_headers().await {
-                Ok(h) => h,
-                Err(e) => return Some((Err(e), state)),
-            };
-
-            let mut query = match state.clone() {
-                HasMore(page_token) => vec![("pageToken", page_token)],
+            let next_token = match state.clone() {
+                HasMore(page_token) => Some(page_token),
                 Done => return None,
-                Start => vec![],
+                Start => None,
             };
 
-            if let Some(prefix) = prefix {
-                query.push(("prefix", prefix.to_string()));
-            };
-
-            let response = crate::CLIENT
-                .get(&url)
-                .query(&query)
-                .headers(headers)
-                .send()
+            let response = Self::list_from_one_page(bucket, prefix, next_token)
                 .await;
+
             let response = match response {
                 Ok(r) => r,
                 Err(e) => return Some((Err(e.into()), state)),
             };
 
-            let json = match response.json().await {
-                Ok(json) => json,
-                Err(e) => return Some((Err(e.into()), state)),
-            };
+            let items = response.items;
 
-            let result: GoogleResponse<ListResponse<Self>> = json;
-
-            let response_body = match result {
-                GoogleResponse::Success(success) => success,
-                GoogleResponse::Error(e) => return Some((Err(e.into()), state)),
-            };
-
-            let items = response_body.items;
-
-            let next_state = if let Some(page_token) = response_body.next_page_token {
+            let next_state = if let Some(page_token) = response.next_page_token {
                 HasMore(page_token)
             } else {
                 Done
@@ -429,7 +404,7 @@ impl Object {
     async fn list_from_one_page(
         bucket: &str,
         prefix: Option<&str>,
-        next_token: Option<&str>,
+        next_token: Option<String>,
     ) -> Result<ListResponse<Self>, Error> {
         let url = format!("{}/b/{}/o", crate::BASE_URL, percent_encode(bucket));
         let headers = crate::get_headers().await?;
@@ -916,7 +891,7 @@ impl Object {
     ///
     /// let obj1 = Object::read("my_bucket", "file1").await?;
     /// let mut custom_metadata = HashMap::new();
-    /// custom_metadata.insert(String::from("field"), String::from("value"));    
+    /// custom_metadata.insert(String::from("field"), String::from("value"));
     /// let (url, headers) = obj1.upload_url_with(50, custom_metadata)?;
     /// // url is now a url to which an unauthenticated user can make a PUT request to upload a file
     /// // for 50 seconds. Note that the user must also include the returned headers in the PUT request
